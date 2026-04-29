@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum SourceType {
+  BLOG
+  GITHUB
+  PAPER
+  FORUM
+}
+
+// ─────────────────────────────────────────────
+// Source — nguồn dữ liệu (Anthropic Blog, GitHub Trending, ...)
+// ─────────────────────────────────────────────
+
+model Source {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  url       String
+  type      SourceType
+  isActive  Boolean    @default(true)
+  articles  Article[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Article — bài viết thô từ scraper
+// ─────────────────────────────────────────────
+
+model Article {
+  id          String    @id @default(cuid())
+  sourceId    String
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  title       String
+  url         String    @unique
+  content     String?
+  publishedAt DateTime?
+
+  // Flexible metadata per source (stars, upvotes, authors, language, ...)
+  metadata    Json      @default("{}")
+
+  // AI-enriched fields (populated by pipeline, nullable until processed)
+  summary     String?
+  tags        String[]
+  impactScore Float?
+
+  // pgvector — future semantic search (populated separately via raw SQL)
+  // embedding vector(1536) — managed outside Prisma for now
+  urlHash     String    @unique  // SHA256(url) — fast dedup lookup
+
+  trends      ArticleTrend[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([publishedAt(sort: Desc)])
+  @@index([impactScore(sort: Desc)])
+  @@index([sourceId])
+}
+
+// ─────────────────────────────────────────────
+// Trend — xu hướng được AI gom từ nhiều articles
+// ─────────────────────────────────────────────
+
+model Trend {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  score       Float    @default(0)
+
+  articles    ArticleTrend[]
+  categories  TrendCategory[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([score(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────
+// Category — nhãn phân loại (#LLM, #GenAI, #Hardware, ...)
+// ─────────────────────────────────────────────
+
+model Category {
+  id     String          @id @default(cuid())
+  name   String          @unique  // slug: "llm", "genai", "hardware"
+  label  String                   // display: "LLM", "GenAI", "Hardware"
+  trends TrendCategory[]
+}
+
+// ─────────────────────────────────────────────
+// Join tables
+// ─────────────────────────────────────────────
+
+model ArticleTrend {
+  articleId String
+  trendId   String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  trend     Trend   @relation(fields: [trendId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, trendId])
+}
+
+model TrendCategory {
+  trendId    String
+  categoryId String
+  trend      Trend    @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([trendId, categoryId])
+}
