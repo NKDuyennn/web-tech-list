@@ -51,3 +51,17 @@ export async function saveScrapedItems(items: ScrapedItem[], sourceMeta: SourceM
 
   return newArticles;
 }
+
+export async function updateArticleEnrichment(
+  articleId: string,
+  data: { summary: string; tags: string[]; impactScore: number }
+): Promise<void> {
+  await prisma.article.update({
+    where: { id: articleId },
+    data: {
+      summary: data.summary,
+      tags: data.tags,
+      impactScore: data.impactScore,
+    },
+  });
+}

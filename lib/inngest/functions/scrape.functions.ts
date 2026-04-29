@@ -38,6 +38,13 @@ export const scrapeSource = inngest.createFunction(
       })
     );
 
+    if (newArticles.length > 0) {
+      await step.sendEvent("trigger-enrichment", {
+        name: "article/enrich" as const,
+        data: { articleIds: newArticles.map((a) => a.id) },
+      });
+    }
+
     return {
       scraperName,
       fetched: items.length,
