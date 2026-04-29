@@ -1,7 +1,11 @@
 import { BaseScraper } from "./base.scraper";
+import { AnthropicScraper } from "./anthropic.scraper";
+import { GitHubTrendingScraper } from "./github.scraper";
 
-// Registry: thêm scraper mới vào đây khi implement
-const scraperRegistry: Record<string, new () => BaseScraper> = {};
+const scraperRegistry: Record<string, new () => BaseScraper> = {
+  "anthropic-blog": AnthropicScraper,
+  "github-trending": GitHubTrendingScraper,
+};
 
 export function getScraper(sourceName: string): BaseScraper | null {
   const ScraperClass = scraperRegistry[sourceName];
@@ -13,3 +17,5 @@ export function getAllScrapers(): BaseScraper[] {
 }
 
 export { BaseScraper };
+export type { ScraperKey };
+type ScraperKey = keyof typeof scraperRegistry;
